@@ -340,7 +340,9 @@ export default function Agenda() {
                         )}
                     </DialogContent>
                 </Dialog>
-
+                <div className="text-center text-xs text-gray-400 mt-6">
+                    © Copyright - Created by FDW software
+                </div>
             </div>
         </div>
     );
