@@ -32,6 +32,17 @@ export type Cita = {
   observaciones: string | null;
   locked_by: string | null;
   locked_at: string | null;
+  deleted_at: string | null;
+};
+
+export type Vacacion = {
+  id: number;
+  empleado_id: number;
+  fecha: string;
+  tipo: string;
+  observacion: string | null;
+  creado_por: string | null;
+  created_at: string;
 };
 
 export type SelectedCell = {
@@ -69,6 +80,37 @@ export const getWeekNumber = (date: Date) => {
 const toMinutes = (time: string) => {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
+};
+
+export const getDurationMinutes = (horaInicio: string, horaFin: string) => {
+  const start = toMinutes(horaInicio);
+  const end = toMinutes(horaFin);
+  return Math.max(30, end - start);
+};
+
+export const getCitaSpan = (horaInicio: string, horaFin: string) => {
+  return Math.max(1, getDurationMinutes(horaInicio, horaFin) / 30);
+};
+
+export const isTimeInCita = (time: string, cita: { hora_inicio: string; hora_fin: string }) => {
+  const slot = toMinutes(time);
+  const start = toMinutes(cita.hora_inicio);
+  const end = toMinutes(cita.hora_fin);
+  return slot >= start && slot < end;
+};
+
+export const isTimeRangeOverlap = (
+  inicioA: string,
+  finA: string,
+  inicioB: string,
+  finB: string
+) => {
+  const startA = toMinutes(inicioA);
+  const endA = toMinutes(finA);
+  const startB = toMinutes(inicioB);
+  const endB = toMinutes(finB);
+
+  return startA < endB && endA > startB;
 };
 
 export type LunchWindow = {
@@ -135,12 +177,13 @@ export const generarHorarios = () => {
   return horarios;
 };
 
-export const getHoraFin = (horaInicio: string) => {
+export const getHoraFin = (horaInicio: string, duracionMinutos = 30) => {
   const [h, m] = horaInicio.split(":").map(Number);
+  const totalMinutes = h * 60 + m + duracionMinutos;
+  const hh = Math.floor(totalMinutes / 60);
+  const mm = totalMinutes % 60;
 
-  return `${String(m === 30 ? h + 1 : h).padStart(2, "0")}:${String(
-    m === 30 ? 0 : 30
-  ).padStart(2, "0")}:00`;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00`;
 };
 
 export const isLocked = (cita: any, currentUserId: string) => {

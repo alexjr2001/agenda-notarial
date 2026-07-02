@@ -4,12 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
     Cita,
+    Vacacion,
     LunchOverride,
     SelectedCell,
+    getDurationMinutes,
     getHoraFin,
     hoyISO,
     sumarDiasISO,
     isLockExpired,
+    getWeekNumber,
+    esAlmuerzo,
+    isTimeInCita,
+    isTimeRangeOverlap,
+    Empleado,
 } from "@/lib/utils";
 
 export const useAgenda = (user: any) => {
@@ -24,6 +31,48 @@ export const useAgenda = (user: any) => {
     const [editingLunch, setEditingLunch] = useState(false);
     const [lunchStart, setLunchStart] = useState("");
     const [lunchEnd, setLunchEnd] = useState("");
+    const [duracionMinutos, setDuracionMinutos] = useState(30);
+    const [draggingCita, setDraggingCita] = useState<Cita | null>(null);
+    const [vacaciones, setVacaciones] = useState<Vacacion[]>([]);
+    const [empleados, setEmpleados] = useState<Empleado[]>([]);
+    const [cargaWarning, setCargaWarning] = useState<string | null>(null);
+
+    const getWorkload = useCallback(() => {
+        const workload: Record<number, number> = {};
+
+        citas
+            .filter(c => c.fecha === fecha && !c.deleted_at)
+            .forEach(c => {
+                workload[c.empleado_id] = (workload[c.empleado_id] || 0) + 1;
+            });
+
+        return workload;
+    }, [citas, fecha]);
+
+    const checkCargaAlternativa = useCallback(
+        (empleadoId: number) => {
+            const workload = getWorkload();
+
+            const cargaActual = workload[empleadoId] ?? 0;
+
+            if (cargaActual <= 3) {
+                return null;
+            }
+
+            const menores = Object.entries(workload).filter(
+                ([id, carga]) =>
+                    Number(id) !== empleadoId && carga < cargaActual
+            ).length;
+
+            if (menores >= 2) {
+                return "Hay otros abogados con espacio libre";
+            }
+
+            return null;
+        },
+        [getWorkload]
+    );
+
 
     const citaSeleccionada = useMemo(() => {
         if (!selectedCell) return null;
@@ -32,7 +81,7 @@ export const useAgenda = (user: any) => {
             citas.find(
                 (c) =>
                     c.empleado_id === selectedCell.empleadoId &&
-                    c.hora_inicio.substring(0, 5) === selectedCell.hora
+                    isTimeInCita(selectedCell.hora, c)
             ) ?? null
         );
     }, [citas, selectedCell]);
@@ -104,6 +153,24 @@ export const useAgenda = (user: any) => {
         fetchAlmuerzos();
     }, [fetchAlmuerzos]);
 
+    const fetchVacaciones = useCallback(async () => {
+        const { data, error } = await supabase
+            .from("vacaciones")
+            .select("*")
+            .eq("fecha", fecha);
+
+        if (error) {
+            console.error(error);
+            return;
+        }
+
+        setVacaciones((data ?? []) as Vacacion[]);
+    }, [fecha]);
+
+    useEffect(() => {
+        fetchVacaciones();
+    }, [fetchVacaciones]);
+
     // Suscripciones en tiempo real para refrescar cuando otros usuarios hagan cambios
     useEffect(() => {
         const citasChannel = supabase
@@ -124,6 +191,15 @@ export const useAgenda = (user: any) => {
             )
             .subscribe();
 
+        const vacChannel = supabase
+            .channel("vacaciones-ch")
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "vacaciones" },
+                () => fetchVacaciones()
+            )
+            .subscribe();
+
         return () => {
             try {
                 supabase.removeChannel(citasChannel);
@@ -136,8 +212,14 @@ export const useAgenda = (user: any) => {
             } catch (e) {
                 // ignore
             }
+
+            try {
+                supabase.removeChannel(vacChannel);
+            } catch (e) {
+                // ignore
+            }
         };
-    }, [fetchCitas, fetchAlmuerzos]);
+    }, [fetchCitas, fetchAlmuerzos, fetchVacaciones]);
 
     const abrirCelda = async (
         empleadoId: number,
@@ -155,7 +237,7 @@ export const useAgenda = (user: any) => {
         const cita = citasActualizadas.find(
             (c) =>
                 c.empleado_id === empleadoId &&
-                c.hora_inicio.substring(0, 5) === hora
+                isTimeInCita(hora, c)
         );
 
         // Si existe una cita, revisar el bloqueo actual antes de abrir
@@ -183,6 +265,7 @@ export const useAgenda = (user: any) => {
             setCliente(cita.cliente);
             setTramite(cita.tramite);
             setObservaciones(cita.observaciones || "");
+            setDuracionMinutos(getDurationMinutes(cita.hora_inicio, cita.hora_fin));
         } else {
             setCliente("");
             setTramite("");
@@ -194,7 +277,7 @@ export const useAgenda = (user: any) => {
                 .insert({
                     fecha,
                     hora_inicio: `${hora}:00`,
-                    hora_fin: getHoraFin(hora),
+                    hora_fin: getHoraFin(hora, duracionMinutos),
                     empleado_id: empleadoId,
                     cliente: "",
                     tramite: "",
@@ -222,13 +305,13 @@ export const useAgenda = (user: any) => {
         if (!selectedCell) return;
 
         // leer el estado actual de la cita desde la DB para evitar usar datos locales obsoletos
-        const { data: currentCita, error: currentError } = await supabase
+        const { data: citasDia, error: currentError } = await supabase
             .from("citas")
             .select("*")
             .eq("fecha", fecha)
-            .eq("empleado_id", selectedCell.empleadoId)
-            .eq("hora_inicio", `${selectedCell.hora}:00`)
-            .single();
+            .eq("empleado_id", selectedCell.empleadoId);
+
+        const currentCita = (citasDia ?? []).find((cita) => isTimeInCita(selectedCell.hora, cita));
 
         if (currentError || !currentCita) return;
         if (currentCita.locked_by !== user.email) return;
@@ -254,13 +337,54 @@ export const useAgenda = (user: any) => {
         }
     }, [selectedCell, citas, fetchCitas, user.email]);
 
+    const toggleVacaciones = async (
+        empleadoId: number,
+        empleadoNombre: string
+    ) => {
+        const existente = vacaciones.find(
+            (vac) => vac.empleado_id === empleadoId
+        );
+
+        if (existente) {
+            const { error } = await supabase
+                .from("vacaciones")
+                .delete()
+                .eq("id", existente.id);
+
+            if (error) {
+                alert(error.message);
+                return;
+            }
+
+            await fetchVacaciones();
+            return;
+        }
+
+        const { error } = await supabase
+            .from("vacaciones")
+            .insert({
+                empleado_id: empleadoId,
+                fecha,
+                tipo: "Vacaciones",
+                observacion: "Vacaciones o Permiso por recuperar",
+                creado_por: user.email ?? "Desconocido",
+            });
+
+        if (error) {
+            alert(error.message);
+            return;
+        }
+
+        await fetchVacaciones();
+    };
+
     const guardarCita = async () => {
         if (!selectedCell) return;
 
         const existente = citas.find(
             (c) =>
                 c.empleado_id === selectedCell.empleadoId &&
-                c.hora_inicio.substring(0, 5) === selectedCell.hora
+                isTimeInCita(selectedCell.hora, c)
         );
 
         if (!cliente.trim() || !tramite.trim()) {
@@ -268,8 +392,28 @@ export const useAgenda = (user: any) => {
             return;
         }
 
+        const warning = checkCargaAlternativa(selectedCell.empleadoId);
+        setCargaWarning(warning);
+
+        if (warning) {
+            const ok = confirm(`${warning}. ¿Deseas continuar?`);
+            if (!ok) return;
+        }
+
         const horaInicio = selectedCell.hora;
-        const horaFin = getHoraFin(horaInicio);
+        const horaFin = getHoraFin(horaInicio, duracionMinutos);
+
+        const conflicto = citas.some(
+            (c) =>
+                c.empleado_id === selectedCell.empleadoId &&
+                c.id !== existente?.id &&
+                isTimeRangeOverlap(c.hora_inicio, c.hora_fin, `${horaInicio}:00`, horaFin)
+        );
+
+        if (conflicto) {
+            alert("Ese horario ya está ocupado.");
+            return;
+        }
 
         if (existente) {
 
@@ -296,6 +440,8 @@ export const useAgenda = (user: any) => {
                     cliente,
                     tramite,
                     observaciones,
+                    hora_inicio: `${horaInicio}:00`,
+                    hora_fin: horaFin,
                     updated_at: new Date().toISOString(),
                     updated_by: user.email,
                 })
@@ -350,7 +496,7 @@ export const useAgenda = (user: any) => {
         const cita = citas.find(
             (c) =>
                 c.empleado_id === selectedCell.empleadoId &&
-                c.hora_inicio.substring(0, 5) === selectedCell.hora
+                isTimeInCita(selectedCell.hora, c)
         );
 
         if (!cita) return;
@@ -387,8 +533,8 @@ export const useAgenda = (user: any) => {
         );
 
         if (existente) {
-            setLunchStart(existente.hora_inicio.substring(0,5));
-            setLunchEnd(existente.hora_fin.substring(0,5));
+            setLunchStart(existente.hora_inicio.substring(0, 5));
+            setLunchEnd(existente.hora_fin.substring(0, 5));
         } else {
             setLunchStart("12:30");
             setLunchEnd("13:30");
@@ -445,6 +591,81 @@ export const useAgenda = (user: any) => {
         return true;
     };
 
+    const moverCita = async (
+        citaId: number,
+        empleadoDestino: number,
+        empleadoNombre: string,
+        horaDestino: string
+    ) => {
+
+        const cita = citas.find(c => c.id === citaId);
+
+        if (!cita) return;
+
+        const ocupada = citas.find(
+            c =>
+                c.empleado_id === empleadoDestino &&
+                c.hora_inicio.substring(0, 5) === horaDestino &&
+                c.id !== cita.id
+        );
+
+        if (ocupada) {
+            alert("La celda está ocupada.");
+            return;
+        }
+
+        const override =
+            lunchOverrides.find(
+                l =>
+                    l.empleado_id === empleadoDestino &&
+                    l.fecha === fecha
+            ) ?? null;
+
+        const week = getWeekNumber(new Date(fecha));
+
+        if (esAlmuerzo(empleadoNombre, horaDestino, week, override)) {
+            alert("No puedes mover una cita al horario de almuerzo.");
+            return;
+        }
+
+        const duracionMovimiento = getDurationMinutes(cita.hora_inicio, cita.hora_fin);
+
+        await supabase
+            .from("citas_logs")
+            .insert({
+                cita_id: cita.id,
+                old_data: {
+                    empleado_id: cita.empleado_id,
+                    hora_inicio: cita.hora_inicio,
+                    hora_fin: cita.hora_fin,
+                },
+                new_data: {
+                    empleado_id: empleadoDestino,
+                    hora_inicio: `${horaDestino}:00`,
+                    hora_fin: getHoraFin(horaDestino, duracionMovimiento),
+                },
+                user_email: user.email,
+            });
+
+        const { error } = await supabase
+            .from("citas")
+            .update({
+                empleado_id: empleadoDestino,
+                hora_inicio: `${horaDestino}:00`,
+                hora_fin: getHoraFin(horaDestino, duracionMovimiento),
+                updated_at: new Date().toISOString(),
+                updated_by: user.email,
+            })
+            .eq("id", cita.id);
+
+        if (error) {
+            alert(error.message);
+            return;
+        }
+
+        await fetchCitas();
+    }
+
     const irHoy = () => setFecha(hoyISO());
     const irAyer = () => setFecha((actual: string) => sumarDiasISO(actual, -1));
     const irMañana = () => setFecha((actual: string) => sumarDiasISO(actual, 1));
@@ -470,6 +691,8 @@ export const useAgenda = (user: any) => {
         setLunchStart,
         lunchEnd,
         setLunchEnd,
+        duracionMinutos,
+        setDuracionMinutos,
         abrirCelda,
         guardarCita,
         eliminarCita,
@@ -479,5 +702,14 @@ export const useAgenda = (user: any) => {
         irAyer,
         irMañana,
         releaseLock,
+        draggingCita,
+        setDraggingCita,
+        vacaciones,
+        toggleVacaciones,
+        empleados,
+        setEmpleados,
+        moverCita,
+        cargaWarning,
+        setCargaWarning,
     };
 };
