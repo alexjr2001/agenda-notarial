@@ -20,6 +20,9 @@ import {
 import { DndContext, DragEndEvent, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthProvider";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
+
 
 const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -114,6 +117,11 @@ export default function Agenda() {
     const horarios = generarHorarios();
     const week = getWeekNumber(new Date(fecha));
     const [activeId, setActiveId] = useState<any>(null);
+    const fechaTexto = format(
+        parseISO(fecha),
+        "EEEE d 'de' MMMM",
+        { locale: es }
+    );
 
     const moverCita = agenda.moverCita;
 
@@ -152,6 +160,10 @@ export default function Agenda() {
                         onChange={(e) => setFecha(e.target.value)}
                         className="border rounded-lg px-3 py-1 text-sm"
                     />
+
+                    <span className="text-sm font-medium text-gray-600 capitalize">
+                        {fechaTexto}
+                    </span>
 
                     <div className="flex items-center gap-4">
                         <div className="text-sm text-gray-600">

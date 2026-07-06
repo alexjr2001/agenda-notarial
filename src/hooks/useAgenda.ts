@@ -40,20 +40,26 @@ export const useAgenda = (user: any) => {
     const getWorkload = useCallback(() => {
         const workload: Record<number, number> = {};
 
+        // Todos comienzan con 0 citas
+        empleados.forEach(emp => {
+            workload[emp.id] = 0;
+        });
+
+        // Contar las citas existentes
         citas
             .filter(c => c.fecha === fecha && !c.deleted_at)
             .forEach(c => {
-                workload[c.empleado_id] = (workload[c.empleado_id] || 0) + 1;
+                workload[c.empleado_id]++;
             });
 
         return workload;
-    }, [citas, fecha]);
+    }, [citas, fecha, empleados]);
 
     const checkCargaAlternativa = useCallback(
         (empleadoId: number) => {
             const workload = getWorkload();
 
-            const cargaActual = workload[empleadoId] ?? 0;
+            const cargaActual = (workload[empleadoId] ?? 0) + 1;
 
             if (cargaActual <= 3) {
                 return null;
