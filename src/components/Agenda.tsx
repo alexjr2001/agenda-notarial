@@ -115,7 +115,9 @@ export default function Agenda() {
         fetchAdmin();
     }, [user.id]);
 
-    const esSabado = getDay(parseISO(fecha)) === 6;
+    const diaSemana = getDay(parseISO(fecha));
+    const esDomingo = diaSemana === 0;
+    const esSabado = diaSemana === 6;
     const horarios = generarHorarios(esSabado ? "12:30" : "18:00");
     const week = getWeekNumber(new Date(fecha));
     const [activeId, setActiveId] = useState<any>(null);
@@ -182,145 +184,159 @@ export default function Agenda() {
                 </div>
 
                 {/* TABLA */}
-                <DndContext
-                    onDragEnd={handleDragEnd}
-                    onDragStart={(event) => setActiveId(event.active.id)}
-                    sensors={sensors}
-                >
-                    <div className="overflow-x-auto bg-white rounded-xl shadow-sm">
-                        <table className="w-full min-w-max table-fixed border-collapse border border-gray-200">
-                            <colgroup>
-                                <col className="w-28" />
-                                {empleados.map((emp) => (
-                                    <col key={`col-${emp.id}`} className="w-36" />
-                                ))}
-                            </colgroup>
+                {esDomingo ? (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center">
+                        <div className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                            Domingo
+                        </div>
+                        <div className="mt-2 text-lg font-semibold text-gray-900">
+                            No seas malo... ¿Quieres reservar una cita un domingo? Eso no se hace :o
+                        </div>
+                        <div className="mt-1 text-sm text-gray-500">
+                            Selecciona otro día para ver o registrar citas.
+                        </div>
+                    </div>
+                ) : (
+                    <DndContext
+                        onDragEnd={handleDragEnd}
+                        onDragStart={(event) => setActiveId(event.active.id)}
+                        sensors={sensors}
+                    >
+                        <div className="overflow-x-auto bg-white rounded-xl shadow-sm">
+                            <table className="w-full min-w-max table-fixed border-collapse border border-gray-200">
+                                <colgroup>
+                                    <col className="w-28" />
+                                    {empleados.map((emp) => (
+                                        <col key={`col-${emp.id}`} className="w-36" />
+                                    ))}
+                                </colgroup>
 
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="p-3 text-left text-xs font-medium text-gray-500 border border-gray-200">
-                                        Hora
-                                    </th>
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="p-3 text-left text-xs font-medium text-gray-500 border border-gray-200">
+                                            Hora
+                                        </th>
 
-                                    {empleados.map((emp) => {
-                                        const vacacion = vacaciones.find(
-                                            (vac) => vac.empleado_id === emp.id
-                                        );
-
-                                        return (
-                                            <th
-                                                key={emp.id}
-                                                className="p-3 text-left text-xs font-medium text-gray-500 border border-gray-200"
-                                            >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span>{emp.nombre}</span>
-                                                    {isAdmin && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => toggleVacaciones(emp.id, emp.nombre)}
-                                                            className={`text-[10px] rounded-full px-2 py-0.5 font-semibold whitespace-nowrap ${vacacion ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
-                                                        >
-                                                            {vacacion ? "❌" : "✅"}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </th>
-                                        );
-                                    })}
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {horarios.map((hora) => (
-                                    <tr key={hora}>
-
-                                        {/* HORA */}
-                                        <td className="p-2 text-xs text-gray-500 border border-gray-200">
-                                            {hora}
-                                        </td>
-
-                                        {/* CELDAS */}
                                         {empleados.map((emp) => {
                                             const vacacion = vacaciones.find(
                                                 (vac) => vac.empleado_id === emp.id
                                             );
-                                            const blockedMessage = vacacion ? "No presente" : "";
-                                            const blockedTitle = vacacion
-                                                ? vacacion.observacion || "Vacaciones/Permiso por recuperar"
-                                                : "";
-                                            const cita = citas.find(
-                                                (c) =>
-                                                    c.empleado_id === emp.id &&
-                                                    isTimeInCita(hora, c)
-                                            );
-                                            const isCitaInicio = cita ? cita.hora_inicio.substring(0, 5) === hora : false;
-                                            const span = cita && isCitaInicio ? getCitaSpan(cita.hora_inicio, cita.hora_fin) : 1;
-                                            const override = lunchOverrides.find(
-                                                (l) => l.empleado_id === emp.id && l.fecha === fecha
-                                            ) ?? null;
-                                            const almuerzo = !esSabado && esAlmuerzo(emp.nombre, hora, week, override);
-                                            const citaColor = colorMap[emp.color] ?? {
-                                                bg: "bg-blue-500",
-                                                border: "border-black/10",
-                                            };
-                                            const isLockedByOther = cita ? isLocked(cita, user.email) : false;
-                                            const isPlaceholder = cita ? cita.cliente === "" && (!cita.tramite || cita.tramite === "") : false;
-                                            const isMine = cita ? cita.locked_by === user.email : false;
-                                            const label = isLockedByOther
-                                                ? "Está editando"
-                                                : isPlaceholder && isMine
-                                                    ? "Creando..."
-                                                    : null;
 
                                             return (
-                                                <AgendaCell
-                                                    key={`${hora}-${emp.id}`}
-                                                    cita={cita}
-                                                    isCitaInicio={isCitaInicio}
-                                                    span={span}
-                                                    isLockedByOther={isLockedByOther}
-                                                    isPlaceholder={isPlaceholder}
-                                                    isMine={isMine}
-                                                    almuerzo={almuerzo}
-                                                    isAdmin={isAdmin}
-                                                    citaColor={citaColor}
-                                                    label={label}
-                                                    empleadoId={emp.id}
-                                                    empleadoNombre={emp.nombre}
-                                                    hora={hora}
-                                                    blockedMessage={blockedMessage}
-                                                    blockedTitle={blockedTitle}
-                                                    onCellClick={() => {
-                                                        if (blockedMessage) return;
-                                                        if (isLockedByOther) return;
-
-                                                        if (almuerzo) {
-                                                            if (!isAdmin) return;
-                                                            editarAlmuerzo(emp.id, emp.nombre);
-                                                        }
-                                                        else abrirCelda(emp.id, emp.nombre, hora);
-                                                    }}
-                                                />
+                                                <th
+                                                    key={emp.id}
+                                                    className="p-3 text-left text-xs font-medium text-gray-500 border border-gray-200"
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span>{emp.nombre}</span>
+                                                        {isAdmin && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleVacaciones(emp.id, emp.nombre)}
+                                                                className={`text-[10px] rounded-full px-2 py-0.5 font-semibold whitespace-nowrap ${vacacion ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
+                                                            >
+                                                                {vacacion ? "❌" : "✅"}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </th>
                                             );
                                         })}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    <DragOverlay>
-                        {activeCita ? (
-                            <div className="rounded-lg p-2 text-xs shadow-xl border bg-blue-500 border-black/10">
-                                <div className="font-bold text-black/80 truncate">
-                                    {activeCita.tramite}
+                                </thead>
+
+                                <tbody>
+                                    {horarios.map((hora) => (
+                                        <tr key={hora}>
+
+                                            {/* HORA */}
+                                            <td className="p-2 text-xs text-gray-500 border border-gray-200">
+                                                {hora}
+                                            </td>
+
+                                            {/* CELDAS */}
+                                            {empleados.map((emp) => {
+                                                const vacacion = vacaciones.find(
+                                                    (vac) => vac.empleado_id === emp.id
+                                                );
+                                                const blockedMessage = vacacion ? "No presente" : "";
+                                                const blockedTitle = vacacion
+                                                    ? vacacion.observacion || "Vacaciones/Permiso por recuperar"
+                                                    : "";
+                                                const cita = citas.find(
+                                                    (c) =>
+                                                        c.empleado_id === emp.id &&
+                                                        isTimeInCita(hora, c)
+                                                );
+                                                const isCitaInicio = cita ? cita.hora_inicio.substring(0, 5) === hora : false;
+                                                const span = cita && isCitaInicio ? getCitaSpan(cita.hora_inicio, cita.hora_fin) : 1;
+                                                const override = lunchOverrides.find(
+                                                    (l) => l.empleado_id === emp.id && l.fecha === fecha
+                                                ) ?? null;
+                                                const almuerzo = !esSabado && esAlmuerzo(emp.nombre, hora, week, override);
+                                                const citaColor = colorMap[emp.color] ?? {
+                                                    bg: "bg-blue-500",
+                                                    border: "border-black/10",
+                                                };
+                                                const isLockedByOther = cita ? isLocked(cita, user.email) : false;
+                                                const isPlaceholder = cita ? cita.cliente === "" && (!cita.tramite || cita.tramite === "") : false;
+                                                const isMine = cita ? cita.locked_by === user.email : false;
+                                                const label = isLockedByOther
+                                                    ? "Está editando"
+                                                    : isPlaceholder && isMine
+                                                        ? "Creando..."
+                                                        : null;
+
+                                                return (
+                                                    <AgendaCell
+                                                        key={`${hora}-${emp.id}`}
+                                                        cita={cita}
+                                                        isCitaInicio={isCitaInicio}
+                                                        span={span}
+                                                        isLockedByOther={isLockedByOther}
+                                                        isPlaceholder={isPlaceholder}
+                                                        isMine={isMine}
+                                                        almuerzo={almuerzo}
+                                                        isAdmin={isAdmin}
+                                                        citaColor={citaColor}
+                                                        label={label}
+                                                        empleadoId={emp.id}
+                                                        empleadoNombre={emp.nombre}
+                                                        hora={hora}
+                                                        blockedMessage={blockedMessage}
+                                                        blockedTitle={blockedTitle}
+                                                        onCellClick={() => {
+                                                            if (blockedMessage) return;
+                                                            if (isLockedByOther) return;
+
+                                                            if (almuerzo) {
+                                                                if (!isAdmin) return;
+                                                                editarAlmuerzo(emp.id, emp.nombre);
+                                                            }
+                                                            else abrirCelda(emp.id, emp.nombre, hora);
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <DragOverlay>
+                            {activeCita ? (
+                                <div className="rounded-lg p-2 text-xs shadow-xl border bg-blue-500 border-black/10">
+                                    <div className="font-bold text-black/80 truncate">
+                                        {activeCita.tramite}
+                                    </div>
+                                    <div className="font-medium text-black/60 truncate">
+                                        {activeCita.cliente}
+                                    </div>
                                 </div>
-                                <div className="font-medium text-black/60 truncate">
-                                    {activeCita.cliente}
-                                </div>
-                            </div>
-                        ) : null}
-                    </DragOverlay>
-                </DndContext>
+                            ) : null}
+                        </DragOverlay>
+                    </DndContext>
+                )}
 
                 {/* MODAL */}
                 <Dialog open={open} onOpenChange={(value) => {

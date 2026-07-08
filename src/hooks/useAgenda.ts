@@ -36,6 +36,7 @@ export const useAgenda = (user: any) => {
     const [vacaciones, setVacaciones] = useState<Vacacion[]>([]);
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
     const [cargaWarning, setCargaWarning] = useState<string | null>(null);
+    const esDomingo = new Date(`${fecha}T00:00:00`).getDay() === 0;
 
     const getWorkload = useCallback(() => {
         const workload: Record<number, number> = {};
@@ -232,6 +233,11 @@ export const useAgenda = (user: any) => {
         empleadoNombre: string,
         hora: string
     ) => {
+        if (esDomingo) {
+            alert("No se pueden registrar citas los domingos.");
+            return;
+        }
+
         // 🔥 SIEMPRE leer DB fresca
         const { data } = await supabase
             .from("citas")
@@ -386,6 +392,10 @@ export const useAgenda = (user: any) => {
 
     const guardarCita = async () => {
         if (!selectedCell) return;
+        if (esDomingo) {
+            alert("No se pueden registrar citas los domingos.");
+            return;
+        }
 
         const existente = citas.find(
             (c) =>
@@ -552,6 +562,10 @@ export const useAgenda = (user: any) => {
 
     const guardarAlmuerzo = async () => {
         if (!selectedCell) return;
+        if (esDomingo) {
+            alert("No se registran horarios de almuerzo los domingos.");
+            return false;
+        }
         if (!lunchStart || !lunchEnd) {
             alert("Inicio y fin son obligatorios");
             return;
@@ -603,6 +617,10 @@ export const useAgenda = (user: any) => {
         empleadoNombre: string,
         horaDestino: string
     ) => {
+        if (esDomingo) {
+            alert("No se pueden mover citas a un domingo.");
+            return;
+        }
 
         const cita = citas.find(c => c.id === citaId);
 
