@@ -20,7 +20,7 @@ import {
 import { DndContext, DragEndEvent, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthProvider";
-import { format, parseISO } from "date-fns";
+import { format, getDay, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
 
@@ -115,7 +115,8 @@ export default function Agenda() {
         fetchAdmin();
     }, [user.id]);
 
-    const horarios = generarHorarios();
+    const esSabado = getDay(parseISO(fecha)) === 6;
+    const horarios = generarHorarios(esSabado ? "12:30" : "18:00");
     const week = getWeekNumber(new Date(fecha));
     const [activeId, setActiveId] = useState<any>(null);
     const fechaTexto = format(
@@ -257,7 +258,7 @@ export default function Agenda() {
                                             const override = lunchOverrides.find(
                                                 (l) => l.empleado_id === emp.id && l.fecha === fecha
                                             ) ?? null;
-                                            const almuerzo = esAlmuerzo(emp.nombre, hora, week, override);
+                                            const almuerzo = !esSabado && esAlmuerzo(emp.nombre, hora, week, override);
                                             const citaColor = colorMap[emp.color] ?? {
                                                 bg: "bg-blue-500",
                                                 border: "border-black/10",

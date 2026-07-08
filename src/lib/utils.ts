@@ -166,13 +166,14 @@ export const esAlmuerzo = (empleado: string, hora: string, week: number, overrid
   return isTimeInWindow(hora, window);
 };
 
-export const generarHorarios = () => {
+export const generarHorarios = (horaFin = "18:00") => {
   const horarios: string[] = [];
+  const limiteMinutos = toMinutes(horaFin);
 
   let hora = 8;
   let minuto = 30;
 
-  while (hora < 18 || (hora === 18 && minuto === 0)) {
+  while (hora * 60 + minuto <= limiteMinutos) {
     horarios.push(
       `${hora.toString().padStart(2, "0")}:${minuto.toString().padStart(2, "0")}`
     );
