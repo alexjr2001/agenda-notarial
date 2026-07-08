@@ -59,7 +59,7 @@ export default function AgendaCell({
         <td
             ref={setNodeRef}
             rowSpan={cita && isCitaInicio ? span : 1}
-            className={`h-10 align-top p-0.2 ${isOver ? "bg-green-100" : ""} ${
+            className={`h-10 align-top p-0.2 border border-gray-200 ${isOver ? "bg-green-100" : ""} ${
                 blockedMessage
                     ? "cursor-not-allowed"
                     : isLockedByOther
@@ -70,9 +70,9 @@ export default function AgendaCell({
                                 ? "cursor-grab active:cursor-grabbing"
                                 : "cursor-pointer"
             }`}
-            onClick={() => {
+            onDoubleClick={() => {
                 if (blockedMessage) return;
-                // Click en almuerzo o celda vacía
+                // Doble click en almuerzo o celda vacía
                 if (!cita || !isCitaInicio) {
                     onCellClick();
                 }
@@ -90,7 +90,7 @@ export default function AgendaCell({
                     ALMUERZO
                 </div>
             ) : cita && isCitaInicio ? (
-                <DraggableCita cita={cita} onClick={onCellClick}>
+                <DraggableCita cita={cita} onDoubleClick={onCellClick}>
                     <div
                         className={`h-full rounded-lg p-2 text-xs shadow-sm border ${citaColor.bg} ${citaColor.border} ${lockedClass}`}
                     >

@@ -51,8 +51,11 @@ export type SelectedCell = {
   hora: string;
 } | null;
 
-export const grupoA = ["Paolo", "Karina", "Romina"];
-export const grupoB = ["Valeska", "Jaime", "Valeria", "Karen"];
+export const grupoA = ["Valeska", "Jaime", "Valeria", "Karen"];
+export const grupoB = ["Paolo", "Karina", "Romina"];
+
+//export const grupoA = ["Paolo", "Valeria", "Karen", "Omayra"];
+//export const grupoB = ["Valeska", "Jaime", "Karina", "Romina"];
 
 export const hoyISO = () => new Date().toISOString().split("T")[0];
 
@@ -74,7 +77,7 @@ export const formatearFechaBonita = (isoDate: string) => {
 export const getWeekNumber = (date: Date) => {
   const start = new Date(date.getFullYear(), 0, 1);
   const diff = date.getTime() - start.getTime();
-  return Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
+  return Math.floor((diff + 4 * 24 * 60 * 60 * 1000) / (7 * 24 * 60 * 60 * 1000));
 };
 
 const toMinutes = (time: string) => {
@@ -119,6 +122,14 @@ export type LunchWindow = {
 };
 
 export const getDefaultLunchWindow = (empleado: string, week: number): LunchWindow => {
+  
+  if (empleado === "Notario") {
+    return {
+      inicio: "13:00",
+      fin: "14:30",
+    };
+  }
+
   const impar = week % 2 === 1;
   const esGrupoA = grupoA.includes(empleado);
   const inicio = impar
@@ -135,8 +146,8 @@ export const getDefaultLunchWindow = (empleado: string, week: number): LunchWind
 export const getLunchWindow = (empleado: string, week: number, override: { hora_inicio: string; hora_fin: string } | null): LunchWindow => {
   if (override) {
     return {
-      inicio: override.hora_inicio.substring(0,5),
-      fin: override.hora_fin.substring(0,5),
+      inicio: override.hora_inicio.substring(0, 5),
+      fin: override.hora_fin.substring(0, 5),
     };
   }
 
@@ -161,7 +172,7 @@ export const generarHorarios = () => {
   let hora = 8;
   let minuto = 30;
 
-  while (hora < 18) {
+  while (hora < 18 || (hora === 18 && minuto === 0)) {
     horarios.push(
       `${hora.toString().padStart(2, "0")}:${minuto.toString().padStart(2, "0")}`
     );

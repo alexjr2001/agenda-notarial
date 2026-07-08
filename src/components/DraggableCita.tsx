@@ -7,13 +7,13 @@ import React from "react";
 type Props = {
     cita: any;
     children: React.ReactNode;
-    onClick?: () => void;
+    onDoubleClick?: () => void;
 };
 
 export default function DraggableCita({
     cita,
     children,
-    onClick,
+    onDoubleClick,
 }: Props) {
     const {
         attributes,
@@ -33,11 +33,11 @@ export default function DraggableCita({
         opacity: isDragging ? 0.5 : 1,
     };
 
-    const handleClick = (e: React.MouseEvent) => {
-        // El activationConstraint en el DndContext previene que el drag se active
-        // si el movimiento es < 8px, permitiendo que solo se ejecute el click
-        if (onClick) {
-            onClick();
+    const handleDoubleClick = (e: React.MouseEvent) => {
+        // Evita que el doble click burbujee al td y dispare acciones duplicadas.
+        e.stopPropagation();
+        if (onDoubleClick) {
+            onDoubleClick();
         }
     };
 
@@ -48,7 +48,7 @@ export default function DraggableCita({
             {...listeners}
             {...attributes}
             className="w-full h-full"
-            onClick={handleClick}
+            onDoubleClick={handleDoubleClick}
         >
             {children}
         </div>

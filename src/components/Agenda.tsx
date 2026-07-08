@@ -90,7 +90,8 @@ export default function Agenda() {
         const fetchEmpleados = async () => {
             const { data, error } = await supabase
                 .from("empleados")
-                .select("*");
+                .select("*")
+                .order("orden", { ascending: true });
 
             if (!error) {
                 setEmpleados(data);
@@ -186,11 +187,17 @@ export default function Agenda() {
                     sensors={sensors}
                 >
                     <div className="overflow-x-auto bg-white rounded-xl shadow-sm">
-                        <table className="w-full border-collapse">
+                        <table className="w-full min-w-max table-fixed border-collapse border border-gray-200">
+                            <colgroup>
+                                <col className="w-28" />
+                                {empleados.map((emp) => (
+                                    <col key={`col-${emp.id}`} className="w-36" />
+                                ))}
+                            </colgroup>
 
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="p-3 text-left text-xs font-medium text-gray-500">
+                                    <th className="p-3 text-left text-xs font-medium text-gray-500 border border-gray-200">
                                         Hora
                                     </th>
 
@@ -202,7 +209,7 @@ export default function Agenda() {
                                         return (
                                             <th
                                                 key={emp.id}
-                                                className="p-3 text-left text-xs font-medium text-gray-500"
+                                                className="p-3 text-left text-xs font-medium text-gray-500 border border-gray-200"
                                             >
                                                 <div className="flex items-center justify-between gap-2">
                                                     <span>{emp.nombre}</span>
@@ -224,10 +231,10 @@ export default function Agenda() {
 
                             <tbody>
                                 {horarios.map((hora) => (
-                                    <tr key={hora} className="border-t border-gray-100">
+                                    <tr key={hora}>
 
                                         {/* HORA */}
-                                        <td className="p-2 text-xs text-gray-500 w-28">
+                                        <td className="p-2 text-xs text-gray-500 border border-gray-200">
                                             {hora}
                                         </td>
 
