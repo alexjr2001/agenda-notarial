@@ -17,6 +17,7 @@ import {
     isTimeInCita,
     isTimeRangeOverlap,
     Empleado,
+    getFeriado,
 } from "@/lib/utils";
 
 export const useAgenda = (user: any) => {
@@ -37,6 +38,7 @@ export const useAgenda = (user: any) => {
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
     const [cargaWarning, setCargaWarning] = useState<string | null>(null);
     const esDomingo = new Date(`${fecha}T00:00:00`).getDay() === 0;
+    const nombreFeriado = getFeriado(fecha);
 
     const getWorkload = useCallback(() => {
         const workload: Record<number, number> = {};
@@ -238,6 +240,11 @@ export const useAgenda = (user: any) => {
             return;
         }
 
+        if (nombreFeriado) {
+            alert(`No se registran citas en feriado (${nombreFeriado}).`);
+            return;
+        }
+
         // 🔥 SIEMPRE leer DB fresca
         const { data } = await supabase
             .from("citas")
@@ -394,6 +401,11 @@ export const useAgenda = (user: any) => {
         if (!selectedCell) return;
         if (esDomingo) {
             alert("No se pueden registrar citas los domingos.");
+            return;
+        }
+
+        if (nombreFeriado) {
+            alert(`No se registran citas en feriado (${nombreFeriado}).`);
             return;
         }
 
@@ -566,6 +578,12 @@ export const useAgenda = (user: any) => {
             alert("No se registran horarios de almuerzo los domingos.");
             return false;
         }
+
+        if (nombreFeriado) {
+            alert(`No se registran horarios de almuerzo en feriado (${nombreFeriado}).`);
+            return false;
+        }
+
         if (!lunchStart || !lunchEnd) {
             alert("Inicio y fin son obligatorios");
             return;
@@ -619,6 +637,11 @@ export const useAgenda = (user: any) => {
     ) => {
         if (esDomingo) {
             alert("No se pueden mover citas a un domingo.");
+            return;
+        }
+
+        if (nombreFeriado) {
+            alert(`No se pueden mover citas en feriado (${nombreFeriado}).`);
             return;
         }
 

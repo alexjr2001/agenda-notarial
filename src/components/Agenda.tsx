@@ -11,6 +11,7 @@ import {
     Empleado,
     esAlmuerzo,
     generarHorarios,
+    getFeriado,
     getCitaSpan,
     getHoraFin,
     getWeekNumber,
@@ -118,6 +119,8 @@ export default function Agenda() {
 
     const diaSemana = getDay(parseISO(fecha));
     const esDomingo = diaSemana === 0;
+    const nombreFeriado = getFeriado(fecha);
+    const esDiaFeriado = Boolean(nombreFeriado);
     const esSabado = diaSemana === 6;
     const horarios = generarHorarios(esSabado ? "12:30" : "18:00");
     const week = getWeekNumber(new Date(fecha));
@@ -185,13 +188,15 @@ export default function Agenda() {
                 </div>
 
                 {/* TABLA */}
-                {esDomingo ? (
+                {esDomingo || esDiaFeriado ? (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center">
                         <div className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                            Domingo
+                            {esDomingo ? "Domingo" : "Feriado"}
                         </div>
                         <div className="mt-2 text-lg font-semibold text-gray-900">
-                            No seas malo... ¿Quieres reservar una cita un domingo? Eso no se hace :o
+                            {esDomingo
+                                ? "No seas malo... ¿Quieres reservar una cita un domingo? Eso no se hace :o"
+                                : `Hoy es feriado: ${nombreFeriado}`}
                         </div>
                         <div className="mt-1 text-sm text-gray-500">
                             Selecciona otro día para ver o registrar citas.

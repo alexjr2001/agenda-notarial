@@ -59,6 +59,89 @@ export const grupoB = ["Valeska", "Jaime", "Karina", "Romina"];
 
 export const hoyISO = () => new Date().toISOString().split("T")[0];
 
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+const formatDateToISO = (date: Date) => {
+  const year = date.getFullYear();
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+  return `${year}-${month}-${day}`;
+};
+
+const subtractDays = (date: Date, days: number) => {
+  const result = new Date(date);
+  result.setDate(result.getDate() - days);
+  return result;
+};
+
+const FERIADOS_FIJOS: Record<string, string> = {
+  "01-01": "Año Nuevo",
+  "05-01": "Día del Trabajo",
+  "06-07": "Batalla de Arica y Día de la Bandera",
+  "06-29": "San Pedro y San Pablo",
+  "07-23": "Día de la Fuerza Aérea",
+  "07-28": "Fiestas Patrias",
+  "07-29": "Fiestas Patrias",
+  "08-06": "Batalla de Junín",
+  "08-30": "Santa Rosa de Lima",
+  "10-08": "Combate de Angamos",
+  "11-01": "Todos los Santos",
+  "12-08": "Inmaculada Concepción",
+  "12-09": "Batalla de Ayacucho",
+  "12-25": "Navidad",
+};
+
+const getEasterSunday = (year: number) => {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+
+  return new Date(year, month - 1, day);
+};
+
+export const getFeriado = (isoDate: string) => {
+  if (!isoDate || isoDate.length < 10) {
+    return null;
+  }
+
+  const fixedHoliday = FERIADOS_FIJOS[isoDate.slice(5, 10)];
+  if (fixedHoliday) {
+    return fixedHoliday;
+  }
+
+  const year = Number(isoDate.slice(0, 4));
+  if (Number.isNaN(year)) {
+    return null;
+  }
+
+  const easterSunday = getEasterSunday(year);
+  const juevesSanto = formatDateToISO(subtractDays(easterSunday, 3));
+  const viernesSanto = formatDateToISO(subtractDays(easterSunday, 2));
+
+  if (isoDate === juevesSanto) {
+    return "Jueves Santo";
+  }
+
+  if (isoDate === viernesSanto) {
+    return "Viernes Santo";
+  }
+
+  return null;
+};
+
+export const esFeriado = (isoDate: string) => getFeriado(isoDate) !== null;
+
 export const sumarDiasISO = (isoDate: string, dias: number) => {
   const fecha = new Date(`${isoDate}T00:00:00`);
   fecha.setDate(fecha.getDate() + dias);
