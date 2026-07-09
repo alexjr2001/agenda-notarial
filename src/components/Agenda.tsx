@@ -12,6 +12,7 @@ import {
     esAlmuerzo,
     generarHorarios,
     getCitaSpan,
+    getHoraFin,
     getWeekNumber,
     isLocked,
     isTimeInCita,
@@ -251,7 +252,7 @@ export default function Agenda() {
 
                                             {/* HORA */}
                                             <td className="p-2 text-xs text-gray-500 border border-gray-200">
-                                                {hora}
+                                                {hora} - {getHoraFin(hora).substring(0, 5)}
                                             </td>
 
                                             {/* CELDAS */}
