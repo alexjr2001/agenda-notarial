@@ -68,6 +68,7 @@ export default function Agenda() {
         toggleVacaciones,
         setEmpleados: setEmpleadosInAgenda,
         cargaWarning,
+        puedeEliminarCitas,
     } = agenda;
 
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -459,7 +460,7 @@ export default function Agenda() {
                                             Guardar
                                         </button>
 
-                                        {citaSeleccionada && (
+                                        {citaSeleccionada && puedeEliminarCitas && (
                                             <button
                                                 onClick={eliminarCita}
                                                 className="px-3 py-2 text-sm rounded-lg bg-red-100 text-red-700"

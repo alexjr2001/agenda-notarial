@@ -37,8 +37,28 @@ export const useAgenda = (user: any) => {
     const [vacaciones, setVacaciones] = useState<Vacacion[]>([]);
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
     const [cargaWarning, setCargaWarning] = useState<string | null>(null);
+    const [puedeEliminarCitas, setPuedeEliminarCitas] = useState(false);
     const esDomingo = new Date(`${fecha}T00:00:00`).getDay() === 0;
     const nombreFeriado = getFeriado(fecha);
+
+    const fetchDeletePermission = useCallback(async () => {
+        if (!user?.id) {
+            setPuedeEliminarCitas(false);
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from("citas_delete_whitelist")
+            .select("user_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+        if (error) {
+            setPuedeEliminarCitas(false);
+            return;
+        }
+        setPuedeEliminarCitas(Boolean(data));
+    }, [user?.id]);
 
     const getWorkload = useCallback(() => {
         const workload: Record<number, number> = {};
@@ -179,6 +199,10 @@ export const useAgenda = (user: any) => {
     useEffect(() => {
         fetchVacaciones();
     }, [fetchVacaciones]);
+
+    useEffect(() => {
+        fetchDeletePermission();
+    }, [fetchDeletePermission]);
 
     // Suscripciones en tiempo real para refrescar cuando otros usuarios hagan cambios
     useEffect(() => {
@@ -519,6 +543,11 @@ export const useAgenda = (user: any) => {
     };
 
     const eliminarCita = async () => {
+        if (!puedeEliminarCitas) {
+            alert("No tienes permisos para eliminar citas.");
+            return;
+        }
+
         if (!selectedCell) return;
 
         const cita = citas.find(
@@ -649,15 +678,28 @@ export const useAgenda = (user: any) => {
 
         if (!cita) return;
 
-        const ocupada = citas.find(
+        const duracionMovimiento = getDurationMinutes(cita.hora_inicio, cita.hora_fin);
+        const nuevaHoraInicio = `${horaDestino}:00`;
+        const nuevaHoraFin = getHoraFin(horaDestino, duracionMovimiento);
+
+        const conflicto = citas.find(
             c =>
                 c.empleado_id === empleadoDestino &&
-                c.hora_inicio.substring(0, 5) === horaDestino &&
-                c.id !== cita.id
+                c.id !== cita.id &&
+                isTimeRangeOverlap(c.hora_inicio, c.hora_fin, nuevaHoraInicio, nuevaHoraFin)
         );
 
-        if (ocupada) {
-            alert("La celda está ocupada.");
+        if (conflicto) {
+            alert("Ese horario se cruza con otra cita.");
+            return;
+        }
+
+        const vacacionDestino = vacaciones.find(
+            vac => vac.empleado_id === empleadoDestino
+        );
+
+        if (vacacionDestino) {
+            alert("No puedes mover una cita a un abogado no presente.");
             return;
         }
 
@@ -670,12 +712,24 @@ export const useAgenda = (user: any) => {
 
         const week = getWeekNumber(new Date(fecha));
 
-        if (esAlmuerzo(empleadoNombre, horaDestino, week, override)) {
-            alert("No puedes mover una cita al horario de almuerzo.");
-            return;
+        // Impide mover la cita si cualquier tramo cae dentro del almuerzo.
+        const inicioMin = Number(horaDestino.slice(0, 2)) * 60 + Number(horaDestino.slice(3, 5));
+        const finMin = inicioMin + duracionMovimiento;
+
+        let cruzaAlmuerzoRango = false;
+        for (let slot = inicioMin; slot < finMin; slot += 30) {
+            const hh = String(Math.floor(slot / 60)).padStart(2, "0");
+            const mm = String(slot % 60).padStart(2, "0");
+            if (esAlmuerzo(empleadoNombre, `${hh}:${mm}`, week, override)) {
+                cruzaAlmuerzoRango = true;
+                break;
+            }
         }
 
-        const duracionMovimiento = getDurationMinutes(cita.hora_inicio, cita.hora_fin);
+        if (cruzaAlmuerzoRango) {
+            alert("No puedes mover una cita que se cruce con el horario de almuerzo.");
+            return;
+        }
 
         await supabase
             .from("citas_logs")
@@ -688,8 +742,8 @@ export const useAgenda = (user: any) => {
                 },
                 new_data: {
                     empleado_id: empleadoDestino,
-                    hora_inicio: `${horaDestino}:00`,
-                    hora_fin: getHoraFin(horaDestino, duracionMovimiento),
+                    hora_inicio: nuevaHoraInicio,
+                    hora_fin: nuevaHoraFin,
                 },
                 user_email: user.email,
             });
@@ -698,8 +752,8 @@ export const useAgenda = (user: any) => {
             .from("citas")
             .update({
                 empleado_id: empleadoDestino,
-                hora_inicio: `${horaDestino}:00`,
-                hora_fin: getHoraFin(horaDestino, duracionMovimiento),
+                hora_inicio: nuevaHoraInicio,
+                hora_fin: nuevaHoraFin,
                 updated_at: new Date().toISOString(),
                 updated_by: user.email,
             })
@@ -758,5 +812,6 @@ export const useAgenda = (user: any) => {
         moverCita,
         cargaWarning,
         setCargaWarning,
+        puedeEliminarCitas,
     };
 };
