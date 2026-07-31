@@ -54,7 +54,7 @@ export type SelectedCell = {
 //export const grupoA = ["Valeska", "Jaime", "Valeria", "Karen"];
 //export const grupoB = ["Paolo", "Karina", "Romina"];
 
-export const grupoA = ["Paolo", "Valeria", "Karen", "Omayra"];
+export const grupoA = ["Valeria", "Karen", "Omayra", "Santy"];
 export const grupoB = ["Valeska", "Jaime", "Karina", "Romina"];
 
 export const hoyISO = () => new Date().toISOString().split("T")[0];
